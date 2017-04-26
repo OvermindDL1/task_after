@@ -17,6 +17,7 @@ defmodule TaskAfter.Mixfile do
 
   def description do
     """
+    This is a library to call a function after a set delay.  Usage is as simple as:  `TaskAfter.task_after(500, fn -> do_something_after_500_ms() end)`
     """
   end
 
