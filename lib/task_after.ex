@@ -1,13 +1,19 @@
 defmodule TaskAfter do
   @moduledoc """
   Documentation for TaskAfter.
+
+  This is a library to call a function after a set delay.
+
+  It will have the normal variation of the EVM/BEAM system and the underlying OS, so give or take a few milliseconds, like ~12 for Windows.
+
+  This keeps an ordered list of tasks to run, it should scale decently, however if it gets too large then you may want to create more Workers to shard the tasks across, this is entirely in your control.
   """
 
   @doc """
   task_after
 
   timeout_after_ms -> integer millisecond timeout
-  callback -> the callback function
+  callback -> The 0-argcallback function
   opts -> Can be:
 
     * `name: name` | `pid: pid` -> Specify a non-global task handler, if unspecified that the application `:global_name` must be specified
