@@ -176,19 +176,6 @@ defmodule TaskAfter.Worker do
       state # No more to process since they are later
     else
       _ = run_task(send_result, task)
-      # case send_result do
-      #   nil -> Task.async(cb) # Spawn and forget
-      #   [] -> Task.async(cb) # Spawn and forget
-      #   :in_process ->
-      #     try do
-      #       cb.() # Uhh, hope they know what they are doing...
-      #     catch
-      #       error, reason -> Logger.error("TaskAfter: Task `#{inspect id}` crashed due to: #{inspect error} -> #{inspect reason}")
-      #     rescue
-      #       exc -> Logger.error("TaskAfter: Task `#{inspect id}` crashed due to exception: #{Exception.message(exc)}")
-      #     end
-      #   pid when is_pid(pid) -> Task.async(fn -> send(pid, cb.()) end)
-      # end
       state = s(state, ids_by_time: rest, cbs_by_id: Map.delete(cbs, id))
       process(state)
     end
@@ -206,7 +193,7 @@ defmodule TaskAfter.Worker do
     :task
   end
   defp run_task(:in_process, t(id: id, cb: cb)) do
-    safe_call_cb(cb, id)
+    safe_call_cb(cb, id) # Uhh, hope they know what they are doing...
   end
   defp run_task(pid, t(id: id,cb: cb)) when is_pid(pid) do
     Task.async(fn -> send(pid, safe_call_cb(cb, id)) end)
@@ -216,7 +203,7 @@ defmodule TaskAfter.Worker do
 
   defp safe_call_cb(cb, id) do
     try do
-      cb.() # Uhh, hope they know what they are doing...
+      cb.()
     rescue
       exc ->
         Logger.warn("TaskAfter: Task `#{inspect id}` crashed due to exception: #{Exception.message(exc)}")
