@@ -63,7 +63,22 @@ The arguments to `TaskAfter.task_after/3` are, in this order:
    - `send_result: pid` -> Sends the result of the task to the specified pid
    - `send_result: :in_process` -> Runs the task in the `TaskAfter.Worker` process to do internal work, do not use this
 
-It can be used as in these examples:
+You can also cancel a task via `TaskAfter.cancel_task_after/1` and `TaskAfter.cancel_task_after/2` where `TaskAfter.cancel_task_after/1` just defaults to having an empty opts list.
+
+The arguments to `TaskAfter.cancel_task_after/2` are, in this order:
+
+1. task_id -> A task id
+2. opts -> Can be:
+   * `name: name` | `pid: pid` -> Specify a non-global task handler, if unspecified that the application `:global_name` must be specified
+   * `call_timeout: timeout` -> Override the timeout on calling to the `TaskAfter.Worker`
+   * `no_return: true` -> Do not return the id or error, just try to register and forget results otherwise
+   * `run_result: pid` -> Sends the result of the task to the specified pid after running it as an async task while returning the Task
+   * `run_result: :in_process` -> Runs the task in the `TaskAfter.Worker` process to do internal work, do not use this, returns the value directly though
+   * `run_result: :async` -> Runs the task as an async task and dismisses the result  while returning the Task
+   * `run_result: nil` -> **Default**: Does not run the task now, just cancels it immediately, returns the callback function
+
+
+They can be used as in these examples:
 
 ```elixir
 defmodule TaskAfterTest do
@@ -72,12 +87,12 @@ defmodule TaskAfterTest do
 
   test "TaskAfter and forget" do
     s = self()
-    {:ok, _auto_id} = TaskAfter.task_after(500, fn -> send(s, 42) end)
+    assert {:ok, _auto_id} = TaskAfter.task_after(500, fn -> send(s, 42) end)
     assert_receive(42, 600)
   end
 
   test "TaskAfter and receive" do
-    {:ok, _auto_id} = TaskAfter.task_after(500, fn -> 42 end, send_result: self())
+    assert {:ok, _auto_id} = TaskAfter.task_after(500, fn -> 42 end, send_result: self())
     assert_receive(42, 600)
   end
 
@@ -127,6 +142,43 @@ defmodule TaskAfterTest do
     assert {:ok, _auto_id} = TaskAfter.task_after(500, fn -> send(s, self()) end, send_result: :in_process, pid: pid)
     assert_receive(^pid, 600)
     GenServer.stop(pid)
+  end
+
+  test "TaskAfter and cancel timer, do not run the callback" do
+    cb = fn -> 42 end
+    assert {:ok, auto_id} = TaskAfter.task_after(500, cb)
+    assert {:ok, ^cb} = TaskAfter.cancel_task_after(auto_id)
+  end
+
+  test "TaskAfter and cancel but also run the callback in process (unsafe again)" do
+    assert {:ok, auto_id} = TaskAfter.task_after(500, fn -> 42 end)
+    assert {:ok, 42} = TaskAfter.cancel_task_after(auto_id, run_result: :in_process)
+  end
+
+  test "TaskAfter and cancel but also run the callback async" do
+    s = self()
+    assert {:ok, auto_id} = TaskAfter.task_after(500, fn -> send(s, 42) end)
+    assert {:ok, :task} = TaskAfter.cancel_task_after(auto_id, run_result: :async)
+    assert_receive(42, 600)
+  end
+
+  test "TaskAfter and cancel but also run the callback async while returning result to pid" do
+    s = self()
+    assert {:ok, auto_id} = TaskAfter.task_after(500, fn -> 42 end)
+    assert {:ok, :task} = TaskAfter.cancel_task_after(auto_id, run_result: s)
+    assert_receive(42, 600)
+  end
+
+  test "TaskAfter and crash" do
+    s = self()
+    len = &length/1
+    d = len.([])
+    assert {:ok, _auto_id2} = TaskAfter.task_after(100, fn -> send(s, 21) end)
+    assert {:ok, _auto_id1} = TaskAfter.task_after(250, fn -> send(s, 1/d) end)
+    assert {:ok, _auto_id2} = TaskAfter.task_after(500, fn -> send(s, 42) end)
+    assert_receive(42, 600)
+    assert_receive(21, 1)
+    assert :no_message == (receive do m -> m after 1 -> :no_message end)
   end
 end
 ```
