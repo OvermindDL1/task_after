@@ -67,6 +67,13 @@ defmodule TaskAfterTest do
     assert {:ok, ^cb} = TaskAfter.cancel_task_after(auto_id)
   end
 
+  test "TaskAfter and cancel timer, but its already been run or does not exist" do
+    assert {:error, {:does_not_exist, :none}} = TaskAfter.cancel_task_after(:none)
+    assert {:ok, auto_id} = TaskAfter.task_after(0, fn -> 42 end, send_result: self())
+    assert_receive(42, 100)
+    assert {:error, {:does_not_exist, {TaskAfter.Worker, _unique_id}}} = TaskAfter.cancel_task_after(auto_id)
+  end
+
   test "TaskAfter and cancel but also run the callback in process (unsafe again)" do
     assert {:ok, auto_id} = TaskAfter.task_after(500, fn -> 42 end)
     assert {:ok, 42} = TaskAfter.cancel_task_after(auto_id, run_result: :in_process)
