@@ -71,7 +71,7 @@ defmodule TaskAfterTest do
     assert {:error, {:does_not_exist, :none}} = TaskAfter.cancel_task_after(:none)
     assert {:ok, auto_id} = TaskAfter.task_after(0, fn -> 42 end, send_result: self())
     assert_receive(42, 100)
-    assert {:error, {:does_not_exist, {TaskAfter.Worker, _unique_id}}} = TaskAfter.cancel_task_after(auto_id)
+    assert {:error, {:does_not_exist, ^auto_id}} = TaskAfter.cancel_task_after(auto_id)
   end
 
   test "TaskAfter and cancel but also run the callback in process (unsafe again)" do
