@@ -97,11 +97,41 @@ defmodule TaskAfterTest do
     s = self()
     len = &length/1
     d = len.([])
-    assert {:ok, _auto_id2} = TaskAfter.task_after(100, fn -> send(s, 21) end)
+    assert {:ok, _auto_id0} = TaskAfter.task_after(100, fn -> send(s, 21) end)
     assert {:ok, _auto_id1} = TaskAfter.task_after(250, fn -> send(s, 1/d) end)
     assert {:ok, _auto_id2} = TaskAfter.task_after(500, fn -> send(s, 42) end)
     assert_receive(42, 600)
     assert_receive(21, 1)
-    assert :no_message == (receive do m -> m after 1 -> :no_message end)
+    assert :no_message = (receive do m -> m after 1 -> :no_message end)
+  end
+
+  test "TaskAfter and replace callback without recreate" do
+    assert {:ok, auto_id} = TaskAfter.task_after(500, fn -> 1 end, send_result: self())
+    assert {:ok, ^auto_id} = TaskAfter.change_task_after(auto_id, callback: fn -> 2 end)
+    assert_receive(2, 600)
+    assert {:error, {:does_not_exist, ^auto_id}} = TaskAfter.change_task_after(auto_id, callback: fn -> 3 end)
+  end
+
+  test "TaskAfter and replace callback and timeout with recreate" do
+    assert {:ok, auto_id} = TaskAfter.task_after(500, fn -> 1 end, send_result: self())
+    assert {:ok, ^auto_id} = TaskAfter.change_task_after(auto_id, recreate_if_necessary: true, timeout_after_ms: 500, send_result: self(), callback: fn -> 2 end)
+    assert_receive(2, 600)
+    assert {:ok, ^auto_id} = TaskAfter.change_task_after(auto_id, recreate_if_necessary: true, timeout_after_ms: 500, send_result: self(), callback: fn -> 3 end)
+    assert_receive(3, 600)
+  end
+
+  test "TaskAfter and replace callback without timeout with recreate" do
+    assert {:ok, auto_id} = TaskAfter.task_after(500, fn -> 1 end, send_result: self())
+    assert {:ok, ^auto_id} = TaskAfter.change_task_after(auto_id, recreate_if_necessary: true, timeout_after_ms: 500, send_result: self(), callback: fn -> 2 end)
+    assert_receive(2, 600)
+    assert {:ok, ^auto_id} = TaskAfter.change_task_after(auto_id, recreate_if_necessary: true, timeout_after_ms: {:default, 500}, send_result: self(), callback: fn -> 3 end)
+    assert_receive(3, 600)
+  end
+
+  test "TaskAfter and replace timeout without recreate" do
+    assert {:ok, auto_id} = TaskAfter.task_after(200, fn -> 1 end, send_result: self())
+    assert {:ok, ^auto_id} = TaskAfter.change_task_after(auto_id, timeout_after_ms: 500)
+    assert :no_message = (receive do m -> m after 300 -> :no_message end)
+    assert_receive(1, 600)
   end
 end

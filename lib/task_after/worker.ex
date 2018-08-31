@@ -46,6 +46,13 @@ defmodule TaskAfter.Worker do
     {:noreply, state, timeout}
   end
 
+  def handle_cast({:change_callback, data}, state) do
+    {state, result} = change_callback(data, state)
+    {state, timeout} = get_next_timeout(state)
+    Logger.debug("TaskAfter: change_cast: #{inspect {timeout, result, state}}")
+    {:noreply, state, timeout}
+  end
+
 
   def handle_call({:register_callback, data}, _from, state) do
     {state, result} = register_callback(data, state)
@@ -58,6 +65,13 @@ defmodule TaskAfter.Worker do
     {state, result} = cancel_callback(data, state)
     {state, timeout} = get_next_timeout(state)
     Logger.debug("TaskAfter: cancel_call: #{inspect {timeout, result, state}}")
+    {:reply, result, state, timeout}
+  end
+
+  def handle_call({:change_callback, data}, _from, state) do
+    {state, result} = change_callback(data, state)
+    {state, timeout} = get_next_timeout(state)
+    Logger.debug("TaskAfter: change_call: #{inspect {timeout, result, state}}")
     {:reply, result, state, timeout}
   end
 
@@ -112,7 +126,11 @@ defmodule TaskAfter.Worker do
         id -> {state, id}
       end
 
-    install_callback(data, id, state)
+    cond do
+      not is_integer(data[:timeout_time]) and not is_integer(data[:timeout_after]) -> {state, {:error, {:invalid_argument, :timeout}}}
+      not is_function(data.callback, 0) -> {state, {:error, {:invalid_argument, :callback}}}
+      true -> install_callback(data, id, state)
+    end
   end
 
   defp install_callback(data, id, s(cbs_by_id: cbs, ids_by_time: times) = state) do
@@ -147,6 +165,49 @@ defmodule TaskAfter.Worker do
         {state, {:ok, result}}
     end
   end
+
+
+  defp change_callback(%{id: id, callback: callback, timeout_after: timeout_after, send_result: send_result, recreate: recreate}, s(cbs_by_id: cbs, ids_by_time: times) = state) do
+    case List.wrap(Map.get(cbs, id)) do
+      [] when recreate in [nil, false] -> {state, {:error, {:does_not_exist, id}}}
+      [] when recreate == true ->
+        callback = get_default_value(callback)
+        timeout_after = get_default_value(timeout_after)
+        send_result = get_default_value(send_result)
+        data = %{
+          timeout_after: timeout_after,
+          id: id,
+          callback: callback,
+          send_result: send_result,
+        }
+        install_callback(data, state)
+      [t(timeout_time: timeout_time, id: ^id, cb: cb, send_result: old_send_result) = task] ->
+        callback = get_non_default_value(callback)
+        timeout_after = get_non_default_value(timeout_after)
+        send_result = get_non_default_value(send_result)
+        cbs = Map.delete(cbs, id)
+        times = List.delete(times, task)
+        data = %{
+          id: id,
+          callback: callback || cb,
+          send_result: send_result || old_send_result,
+        }
+        data = if timeout_after do
+          Map.put_new(data, :timeout_after, timeout_after)
+        else
+          Map.put_new(data, :timeout_time, timeout_time)
+        end
+        state = s(state, cbs_by_id: cbs, ids_by_time: times)
+        install_callback(data, state)
+    end
+  end
+
+
+  defp get_non_default_value({:default, _value}), do: nil
+  defp get_non_default_value(value), do: value
+
+  defp get_default_value({:default, value}), do: value
+  defp get_default_value(value), do: value
 
 
   defp get_next_timeout(s(ids_by_time: [t(timeout_time: next) | _]) = state) do
@@ -188,14 +249,14 @@ defmodule TaskAfter.Worker do
   defp run_task(send_result, task)
   defp run_task(nil, t(cb: cb)), do: cb
   defp run_task([], t(cb: cb)), do: cb
-  defp run_task(:async, t(id: id,cb: cb)) do
+  defp run_task(:async, t(id: id, cb: cb)) do
     Task.async(fn -> safe_call_cb(cb, id) end)
     :task
   end
   defp run_task(:in_process, t(id: id, cb: cb)) do
     safe_call_cb(cb, id) # Uhh, hope they know what they are doing...
   end
-  defp run_task(pid, t(id: id,cb: cb)) when is_pid(pid) do
+  defp run_task(pid, t(id: id, cb: cb)) when is_pid(pid) do
     Task.async(fn -> send(pid, safe_call_cb(cb, id)) end)
     :task
   end

@@ -77,14 +77,34 @@ The arguments to `TaskAfter.cancel_task_after/2` are, in this order:
    * `run_result: :async` -> Runs the task as an async task and dismisses the result  while returning the Task
    * `run_result: nil` -> **Default**: Does not run the task now, just cancels it immediately, returns the callback function
 
+You can change a task via `TaskAfter.change_task_after/2`.
 
-They can be used as in these examples:
+The arguments to `TaskAfter.change_task_after/2` are, in this order:
+
+1. task_id -> A task ID
+2. opts -> Can be:
+  * `name: name` | `pid: pid` -> Specify a non-global task handler, if unspecified that the application `:global_name` must be specified
+  * `call_timeout: timeout` -> Override the timeout on calling to the TaskAfter.Worker`
+  * `no_return: true` -> Do not return the id or error, just try to register and forget results otherwise
+  * `callback: fun` -> Change the callback to this function
+  * `timeout_after_ms: timeout` -> Change the timeout to this new value
+  * `send_result: pid` -> Sends the result of the task to the specified pid after running it as an async task
+  * `send_result: :in_process` -> Runs the task in the `TaskAfter.Worker` process to do internal work, do not use this
+  * `send_result: :async` -> **Default**: Runs the task as an async task and dismisses the result
+  * `recreate: true` -> If this is passed in then `callback`, `timeout_after_ms`, and `send_result` **must** be specified to be able to recreate the task if it is already elapsed.
+
+Note: Of course if the task has already run then changing a setting on it won't do
+anything unless `recreate: true` is passed in.
+
+Note: When `recreate: true` is used then `callback`, `timeout_after_ms`, and `send_result`
+can be passed in their value wrapped in a tagged `:default` tuple like
+`timeout_after_ms: {:default, 500}` and it will not change the existing value if not
+recreating but will use the value if it is.
+
+
+They can be used as in these examples/tests:
 
 ```elixir
-defmodule TaskAfterTest do
-  use ExUnit.Case, async: true
-  doctest TaskAfter
-
   test "TaskAfter and forget" do
     s = self()
     assert {:ok, _auto_id} = TaskAfter.task_after(500, fn -> send(s, 42) end)
@@ -150,6 +170,13 @@ defmodule TaskAfterTest do
     assert {:ok, ^cb} = TaskAfter.cancel_task_after(auto_id)
   end
 
+  test "TaskAfter and cancel timer, but its already been run or does not exist" do
+    assert {:error, {:does_not_exist, :none}} = TaskAfter.cancel_task_after(:none)
+    assert {:ok, auto_id} = TaskAfter.task_after(0, fn -> 42 end, send_result: self())
+    assert_receive(42, 100)
+    assert {:error, {:does_not_exist, ^auto_id}} = TaskAfter.cancel_task_after(auto_id)
+  end
+
   test "TaskAfter and cancel but also run the callback in process (unsafe again)" do
     assert {:ok, auto_id} = TaskAfter.task_after(500, fn -> 42 end)
     assert {:ok, 42} = TaskAfter.cancel_task_after(auto_id, run_result: :in_process)
@@ -173,12 +200,41 @@ defmodule TaskAfterTest do
     s = self()
     len = &length/1
     d = len.([])
-    assert {:ok, _auto_id2} = TaskAfter.task_after(100, fn -> send(s, 21) end)
+    assert {:ok, _auto_id0} = TaskAfter.task_after(100, fn -> send(s, 21) end)
     assert {:ok, _auto_id1} = TaskAfter.task_after(250, fn -> send(s, 1/d) end)
     assert {:ok, _auto_id2} = TaskAfter.task_after(500, fn -> send(s, 42) end)
     assert_receive(42, 600)
     assert_receive(21, 1)
-    assert :no_message == (receive do m -> m after 1 -> :no_message end)
+    assert :no_message = (receive do m -> m after 1 -> :no_message end)
   end
-end
+
+  test "TaskAfter and replace callback without recreate" do
+    assert {:ok, auto_id} = TaskAfter.task_after(500, fn -> 1 end, send_result: self())
+    assert {:ok, ^auto_id} = TaskAfter.change_task_after(auto_id, callback: fn -> 2 end)
+    assert_receive(2, 600)
+    assert {:error, {:does_not_exist, ^auto_id}} = TaskAfter.change_task_after(auto_id, callback: fn -> 3 end)
+  end
+
+  test "TaskAfter and replace callback and timeout with recreate" do
+    assert {:ok, auto_id} = TaskAfter.task_after(500, fn -> 1 end, send_result: self())
+    assert {:ok, ^auto_id} = TaskAfter.change_task_after(auto_id, recreate_if_necessary: true, timeout_after_ms: 500, send_result: self(), callback: fn -> 2 end)
+    assert_receive(2, 600)
+    assert {:ok, ^auto_id} = TaskAfter.change_task_after(auto_id, recreate_if_necessary: true, timeout_after_ms: 500, send_result: self(), callback: fn -> 3 end)
+    assert_receive(3, 600)
+  end
+
+  test "TaskAfter and replace callback without timeout with recreate" do
+    assert {:ok, auto_id} = TaskAfter.task_after(500, fn -> 1 end, send_result: self())
+    assert {:ok, ^auto_id} = TaskAfter.change_task_after(auto_id, recreate_if_necessary: true, timeout_after_ms: 500, send_result: self(), callback: fn -> 2 end)
+    assert_receive(2, 600)
+    assert {:ok, ^auto_id} = TaskAfter.change_task_after(auto_id, recreate_if_necessary: true, timeout_after_ms: {:default, 500}, send_result: self(), callback: fn -> 3 end)
+    assert_receive(3, 600)
+  end
+
+  test "TaskAfter and replace timeout without recreate" do
+    assert {:ok, auto_id} = TaskAfter.task_after(200, fn -> 1 end, send_result: self())
+    assert {:ok, ^auto_id} = TaskAfter.change_task_after(auto_id, timeout_after_ms: 500)
+    assert :no_message = (receive do m -> m after 300 -> :no_message end)
+    assert_receive(1, 600)
+  end
 ```
