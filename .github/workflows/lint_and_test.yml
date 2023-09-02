@@ -11,7 +11,7 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-20.04
     env:
       MIX_ENV: test
     strategy:
@@ -22,15 +22,17 @@ jobs:
               elixir: 1.15.5
               otp: 26.0.2
               lint: lint
+          # Deprecated versions (consider removing and upgrading to Ubuntu 22.04)
           - pair:
               elixir: 1.5
               otp: 20.3.8.26
           - pair:
               elixir: 1.5
               otp: 20.0
-          - pair:
-              elixir: 1.5
-              otp: 18.3.4.11
+          # Only built for Ubuntu 18.04 which has been deprecated as a GitHub Actions runner.
+#          - pair:
+#              elixir: 1.5
+#              otp: 18.3.4.11
     steps:
       - uses: actions/checkout@v2
 
