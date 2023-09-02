@@ -24,10 +24,13 @@ jobs:
               lint: lint
           - pair:
               elixir: 1.5
-              otp: 20
+              otp: 20.3.8.26
           - pair:
               elixir: 1.5
-              otp: 18
+              otp: 20.0
+          - pair:
+              elixir: 1.5
+              otp: 18.3.4.11
     steps:
       - uses: actions/checkout@v2
 
