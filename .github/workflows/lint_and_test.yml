@@ -24,15 +24,11 @@ jobs:
               lint: lint
           # Deprecated versions (consider removing and upgrading to Ubuntu 22.04)
           - pair:
-              elixir: 1.5
-              otp: 20.3.8.26
+              elixir: 1.9
+              otp: 22
           - pair:
-              elixir: 1.5
-              otp: 20.0
-          # Only built for Ubuntu 18.04 which has been deprecated as a GitHub Actions runner.
-#          - pair:
-#              elixir: 1.5
-#              otp: 18.3.4.11
+              elixir: 1.9
+              otp: 20
     steps:
       - uses: actions/checkout@v2
 
