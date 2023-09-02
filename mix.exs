@@ -5,7 +5,7 @@ defmodule TaskAfter.Mixfile do
     [
       app: :task_after,
       version: "1.3.0",
-      elixir: "~> 1.9",
+      elixir: "~> 1.11",
       description: description(),
       package: package(),
       docs: docs(),

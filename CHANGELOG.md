@@ -3,7 +3,7 @@
   * Maintenance chores (update dependencies, deprecated methods., etc.)
   * Update configuration to use `Config` module (instead of Mix)
   * Change `Logger.warn` -> `Logger.warning` (former is deprecated)
-  * Bump minimum Elixir version to v1.5 (per the above)
+  * Bump minimum Elixir version to v1.11 (per the above)
   * Fix documentation formatting typo
   * Add CI testing with GitHub Actions
 
