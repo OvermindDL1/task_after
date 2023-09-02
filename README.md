@@ -12,7 +12,7 @@ Install this package by adding `task_after` to your list of dependencies in `mix
 ```elixir
 def deps do
   [
-    {:task_after, "~> 1.0.0"},
+    {:task_after, "~> 1.3.0"},
   ]
 end
 ```

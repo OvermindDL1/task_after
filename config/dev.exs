@@ -1,4 +1,4 @@
-use Mix.Config
+import Config
 
 config :task_after, global_name: TaskAfter
 

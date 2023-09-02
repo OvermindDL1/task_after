@@ -4,14 +4,14 @@ defmodule TaskAfter.Mixfile do
   def project do
     [
       app: :task_after,
-      version: "1.2.0",
-      elixir: "~> 1.4",
+      version: "1.3.0",
+      elixir: "~> 1.5",
       description: description(),
       package: package(),
       docs: docs(),
-      build_embedded: Mix.env == :prod,
-      start_permanent: Mix.env == :prod,
-      deps: deps(),
+      build_embedded: Mix.env() == :prod,
+      start_permanent: Mix.env() == :prod,
+      deps: deps()
     ]
   end
 
@@ -27,29 +27,28 @@ defmodule TaskAfter.Mixfile do
       name: :task_after,
       maintainers: ["OvermindDL1"],
       links: %{
-        "Github" => "https://github.com/OvermindDL1/task_after",
-      },
+        "Github" => "https://github.com/OvermindDL1/task_after"
+      }
     ]
   end
 
   def docs do
     [
-      #logo: "path/to/logo.png",
       extras: ["README.md"],
-      main: "readme",
+      main: "readme"
     ]
   end
 
   def application do
     [
       extra_applications: [:logger],
-      mod: {TaskAfter.Application, []},
+      mod: {TaskAfter.Application, []}
     ]
   end
 
   defp deps do
     [
-      {:ex_doc, "~> 0.21.1", only: [:dev]},
+      {:ex_doc, "~> 0.30.6", only: [:dev]}
     ]
   end
 end
