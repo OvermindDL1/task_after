@@ -37,14 +37,17 @@ defmodule TaskAfter do
       42
 
   """
-  def task_after(timeout_after_ms, callback, opts \\ []) when is_integer(timeout_after_ms) and is_function(callback, 0) do
-    name = opts[:name] || opts[:pid] || Application.get_env(:task_after, :global_name, nil) || throw "TaskAfter:  `:name` not defined and no global name defined"
+  def task_after(timeout_after_ms, callback, opts \\ [])
+      when is_integer(timeout_after_ms) and is_function(callback, 0) do
+    name =
+      opts[:name] || opts[:pid] || Application.get_env(:task_after, :global_name, nil) ||
+        throw("TaskAfter:  `:name` not defined and no global name defined")
 
     data = %{
       timeout_after: timeout_after_ms,
       callback: callback,
       id: opts[:id],
-      send_result: opts[:send_result] || :async,
+      send_result: opts[:send_result] || :async
     }
 
     if opts[:no_return] do
@@ -53,8 +56,6 @@ defmodule TaskAfter do
       GenServer.call(name, {:register_callback, data}, opts[:call_timeout] || 5000)
     end
   end
-
-
 
   @doc """
   cancel_task_after
@@ -80,11 +81,13 @@ defmodule TaskAfter do
 
   """
   def cancel_task_after(task_id, opts \\ []) do
-    name = opts[:name] || opts[:pid] || Application.get_env(:task_after, :global_name, nil) || throw "TaskAfter:  `:name` not defined and no global name defined"
+    name =
+      opts[:name] || opts[:pid] || Application.get_env(:task_after, :global_name, nil) ||
+        throw("TaskAfter:  `:name` not defined and no global name defined")
 
     data = %{
       id: task_id,
-      send_result: opts[:run_result],
+      send_result: opts[:run_result]
     }
 
     if opts[:no_return] do
@@ -94,7 +97,6 @@ defmodule TaskAfter do
     end
   end
 
-
   @doc """
   change_task_after
 
@@ -102,7 +104,7 @@ defmodule TaskAfter do
   opts -> Can be:
 
     * `name: name` | `pid: pid` -> Specify a non-global task handler, if unspecified that the application `:global_name` must be specified
-    * `call_timeout: timeout` -> Override the timeout on calling to the TaskAfter.Worker`
+    * `call_timeout: timeout` -> Override the timeout on calling to the `TaskAfter.Worker`
     * `no_return: true` -> Do not return the id or error, just try to register and forget results otherwise
     * `callback: fun` -> Change the callback to this function
     * `timeout_after_ms: timeout` -> Change the timeout to this new value
@@ -128,14 +130,16 @@ defmodule TaskAfter do
       :no_message
   """
   def change_task_after(task_id, opts \\ []) do
-    name = opts[:name] || opts[:pid] || Application.get_env(:task_after, :global_name, nil) || throw "TaskAfter:  `:name` not defined and no global name defined"
+    name =
+      opts[:name] || opts[:pid] || Application.get_env(:task_after, :global_name, nil) ||
+        throw("TaskAfter:  `:name` not defined and no global name defined")
 
     data = %{
       id: task_id,
       callback: opts[:callback],
       timeout_after: opts[:timeout_after_ms],
       send_result: opts[:send_result],
-      recreate: opts[:recreate_if_necessary],
+      recreate: opts[:recreate_if_necessary]
     }
 
     if opts[:no_return] do

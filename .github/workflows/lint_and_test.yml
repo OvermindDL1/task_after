@@ -1,0 +1,54 @@
+name: Lint and Test
+
+on:
+  # Manual trigger
+  workflow_dispatch:
+  # Automated (push/pull request)
+  pull_request:
+  push:
+    branches:
+      - master
+
+jobs:
+  test:
+    runs-on: ubuntu-20.04
+    env:
+      MIX_ENV: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - pair:
+              elixir: 1.15.5
+              otp: 26.0.2
+              lint: lint
+          # Deprecated versions (consider removing and upgrading to Ubuntu 22.04)
+          - pair:
+              elixir: 1.11
+              otp: 24
+          - pair:
+              elixir: 1.11
+              otp: 21
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{matrix.pair.otp}}
+          elixir-version: ${{matrix.pair.elixir}}
+
+      - name: Install Dependencies
+        run: mix deps.get --only test
+
+      - run: mix format --check-formatted
+        if: ${{ matrix.lint }}
+
+      - run: mix deps.get && mix deps.unlock --check-unused
+        if: ${{ matrix.lint }}
+
+      - run: mix deps.compile
+
+      - run: mix compile --warnings-as-errors
+        if: ${{ matrix.lint }}
+
+      - run: mix test
